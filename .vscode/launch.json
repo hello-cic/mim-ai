@@ -1,0 +1,11 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "CMake Build",
+      "type": "cmake",
+      "request": "launch",
+      "buildDirectory": "${workspaceFolder}/build"
+    }
+  ]
+}
