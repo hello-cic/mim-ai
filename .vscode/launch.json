@@ -2,10 +2,17 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "CMake Build",
-      "type": "cmake",
+      "name": "Debug",
+      "type": "cppdbg",
       "request": "launch",
-      "buildDirectory": "${workspaceFolder}/build"
+      "program": "${workspaceFolder}/build/main",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "lldb",
+      "miDebuggerPath": "/usr/bin/lldb"
     }
   ]
 }

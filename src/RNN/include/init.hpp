@@ -9,7 +9,7 @@
 
 namespace _mi {
     template <typename NT, size_t N>
-    inline void rnn::init(std::array<NT, N> neur) {
+    inline void rnn::init(std::array<NT, N> neur, size_t h = 3) {
         // 随机数引擎
         std::random_device rd;
         std::mt19937 gen(rd());
@@ -24,6 +24,7 @@ namespace _mi {
         // 边界符号选择
         std::uniform_int_distribution<> edge_sign(0, 1);
 
+        neur[0] += h;
 
         rp.neur.assign(neur.begin(), neur.end());
         mi::log("neur初始化成功");
@@ -47,7 +48,7 @@ namespace _mi {
                 float candidate = candidate_int / 100.0f;
 
                 // 添加
-                rp.neur.push_back(candidate);
+                rp.w.push_back(candidate);
             }
         }
 
@@ -64,7 +65,9 @@ namespace _mi {
 
         rt.a.resize(rp.b.size());    // 初始化a（数量是b的数量)
 
-        rt.j.resize(rp.a.size());  // 初始化基础值j（数量是a的数量）
+        rt.j.resize(rt.a.size());  // 初始化基础值j（数量是a的数量）
+
+        rt.h.resize(h, 0.0f);    // 隐状态
     }
 }
 
