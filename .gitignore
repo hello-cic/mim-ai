@@ -4,7 +4,7 @@ cmake-build-*/
 out/
 
 # IDE files
-.vscode/settings.json
+.vscode/
 .idea/
 *.swp
 *.swo

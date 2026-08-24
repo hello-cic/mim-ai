@@ -5,69 +5,54 @@
 #include "sac.hpp"
 #include <vector>
 #include <random>
-#include <algorithm>
 
 namespace _mi {
     template <typename NT, size_t N>
-    inline void rnn::init(std::array<NT, N> neur, size_t h = 3) {
+    inline void rnn::init(std::array<NT, N> neur, size_t h_size) {
         // 随机数引擎
         std::random_device rd;
         std::mt19937 gen(rd());
 
-        // 概率控制：20% 概率跳到边界 ±0.5（或 0.05）
-        const double JUMP_PROB = 0.2;
-        std::uniform_real_distribution<> prob(0.0, 1.0);
+        // Xavier 初始化：权重范围 [-1/sqrt(fan_in), 1/sqrt(fan_in)]
+        // fan_in = 上一层神经元数，这样每层输出的方差比较一致
+        std::normal_distribution<float> w_dist(0.0f, 1.0f);
 
-        // 核心区 [-20, 20] 对应 [-0.20, 0.20]
-        std::uniform_int_distribution<> center_dis(-20, 20);
-
-        // 边界符号选择
-        std::uniform_int_distribution<> edge_sign(0, 1);
-
-        neur[0] += h;
-
+        // 输入层存原始输入维度，不加 h_size
+        // h_size 会在 train() 里拼接到输入后面
         rp.neur.assign(neur.begin(), neur.end());
         mi::log("neur初始化成功");
-        
 
-        // 初始化w
+        // 初始化 w：每层用 Xavier 初始化
+        // 第一层的 fan_in = 原始输入 + 隐状态（因为 train 会拼接）
         for (size_t i = 1; i < rp.neur.size(); i++) {
-            for (size_t j = 0; j < rp.neur[i] * rp.neur[i - 1]; j++) {
-                int candidate_int;
-                double rnd = prob(gen);
+            float fan_in;
+            if (i == 1) {
+                fan_in = static_cast<float>(rp.neur[0] + h_size);  // 第一层要考虑 h
+            } else {
+                fan_in = static_cast<float>(rp.neur[i - 1]);
+            }
+            float std_dev = 1.0f / std::sqrt(fan_in);
 
-                if (rnd < (1.0 - JUMP_PROB)) {
-                    candidate_int = center_dis(gen); // 例：-15, 3, 20
-                } else {
-                    // 跳转时只生成 -50 或 50（即 -0.5f 或 0.5f）
-                    int sign = edge_sign(gen);
-                    candidate_int = (sign == 0) ? -50 : 50;
-                }
-
-                // 除以 100.0f 得到 float
-                float candidate = candidate_int / 100.0f;
-
-                // 添加
-                rp.w.push_back(candidate);
+            for (size_t j = 0; j < rp.neur[i] * (i == 1 ? rp.neur[0] + h_size : rp.neur[i - 1]); j++) {
+                rp.w.push_back(w_dist(gen) * std_dev);
             }
         }
 
-
-        // 初始化b
+        // 初始化 b：全 0
         for (size_t i = 1; i < rp.neur.size(); i++)
             rp.b.resize(rp.b.size() + rp.neur[i], 0.0f);
 
+        // 初始化增量数组
+        rp.wa.resize(rp.w.size(), 0.0f);
+        rp.ba.resize(rp.b.size(), 0.0f);
 
-        // 零零散散的其他初始化
-        rp.wa.resize(rp.w.size());       // 初始化w的增加量（数量是w的数量）
+        // 初始化临时变量
+        // rt.a 要存所有层的激活值，第一层实际大小是 neur[0] + h_size
+        rt.a.resize(rp.b.size() + h_size, 0.0f);
+        rt.j.resize(rt.a.size(), 0.0f);
 
-        rp.ba.resize(rp.b.size());     // 初始化b的增加量（数量是b的数量)
-
-        rt.a.resize(rp.b.size());    // 初始化a（数量是b的数量)
-
-        rt.j.resize(rt.a.size());  // 初始化基础值j（数量是a的数量）
-
-        rt.h.resize(h, 0.0f);    // 隐状态
+        // 隐状态初始化为 0
+        rt.h.resize(h_size, 0.0f);
     }
 }
 

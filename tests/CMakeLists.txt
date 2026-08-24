@@ -10,6 +10,5 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Catch2)
 target_link_libraries(tests PRIVATE Catch2::Catch2WithMain)
 
-include(CTest)
-include(Catch)
-catch_discover_tests(tests)
+# 手动注册测试，不使用 catch_discover_tests（避免 Xcode 编译时执行测试被 kill）
+add_test(NAME RNNTests COMMAND tests)

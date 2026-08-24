@@ -1,0 +1,39 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "default",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_CXX_STANDARD": "17"
+      }
+    },
+    {
+      "name": "vscode",
+      "displayName": "VS Code / Terminal",
+      "inherits": "default",
+      "description": "适用于 Vim、VS Code 和终端的 Ninja 构建"
+    },
+    {
+      "name": "xcode",
+      "displayName": "Xcode",
+      "generator": "Xcode",
+      "binaryDir": "${sourceDir}/build/xcode",
+      "inherits": "default",
+      "description": "生成 Xcode 工程文件 (.xcodeproj)"
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "vscode",
+      "configurePreset": "vscode"
+    },
+    {
+      "name": "xcode",
+      "configurePreset": "xcode"
+    }
+  ]
+}

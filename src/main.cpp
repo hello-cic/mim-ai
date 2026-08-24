@@ -21,4 +21,23 @@
 *    用new
 */
 
-// 此项目有一些抽象注释（如组成斜线）
+#define _u8
+
+#include "RNN/RNN.hpp"
+#include <iostream>
+
+int main() {
+    rnn net;
+    net.init(std::array<size_t, 3>{2, 3, 1}, 2);
+    net.lr = 0.0005f;
+    
+    // 训练 1000 次，观察 loss 变化
+    for (int i = 0; i < 1000; i++) {
+        float loss = net.train({0.5f, -0.3f});
+        net.apply_update();
+        if (i % 100 == 0) {
+            std::cout << "step " << i << " loss: " << loss << std::endl;
+        }
+    }
+    return 0;
+}
