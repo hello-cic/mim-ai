@@ -18,3 +18,7 @@ cmake_install.cmake
 Makefile
 *.cmake
 !CMakeLists.txt
+
+# Binary files
+src/main
+src/main.dSYM/

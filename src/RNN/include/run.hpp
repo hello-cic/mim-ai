@@ -46,40 +46,91 @@ namespace _mi {
     }
 
     // ========== 反向传播（比较下降）==========
-    // a_pred = 整个网络前向传播的所有激活值
-    // 用标准反向传播：从输出层误差往回传
-    // 返回损失 = 输出层 err 的均方误差
+    // 算法来自 main.cpp 的注释：
+    //   1. forward(input + h) → a_pred（整个网络激活值）
+    //   2. 用 a * (w/wh) 计算 a_true_on_context
+    //   3. forward(只有 h) → a_j
+    //   4. a_true = a_true_on_context + a_j
+    //   5. err = a_true - a_pred
+    //   6. 标准反向传播更新 w/b
     float rnn::rd() {
         const std::vector<size_t>& tn = rp.neur;
         size_t last = tn.size() - 1;
+        size_t prev = last - 1;
 
-        // ---- 输出层误差 ----
-        // 目标是 0，err = target - a_pred
+        // ---- 取出输出层的预测值 ----
         size_t out_start = 0;
         for (size_t i = 0; i < last; i++) {
             out_start += tn[i];
         }
+        std::vector<float> a_pred(tn[last], 0.0f);
+        for (size_t j = 0; j < tn[last]; j++) {
+            a_pred[j] = rt.a[out_start + j];
+        }
 
+        // ---- 计算前一层→输出层的 w 起始位置 ----
+        size_t w_start = 0;
+        for (size_t i = 0; i < prev; i++) {
+            w_start += tn[i] * tn[i + 1];
+        }
+
+        // ---- 计算 a_true_on_context ----
+        // a_true_on_context[j] = sum_k( a_k * w_kj / wh_k )
+        std::vector<float> a_true_on_context(tn[last], 0.0f);
+        size_t prev_a_start = 0;
+        for (size_t i = 0; i < prev; i++) {
+            prev_a_start += tn[i];
+        }
+
+        for (size_t k = 0; k < tn[prev]; k++) {
+            float wh = 0.0f;
+            for (size_t j = 0; j < tn[last]; j++) {
+                wh += std::abs(rp.w[w_start + k * tn[last] + j]);
+            }
+            if (wh < 1e-8f) wh = 1e-8f;
+            for (size_t j = 0; j < tn[last]; j++) {
+                float a_k = rt.a[prev_a_start + k];
+                float w_kj = rp.w[w_start + k * tn[last] + j];
+                a_true_on_context[j] += a_k * (w_kj / wh);
+            }
+        }
+
+        // ---- 计算 a_j（只用隐状态跑一次）----
+        std::vector<float> h = rt.h;
+        size_t input_size = tn[0] - h.size();
+        std::vector<float> h_input(input_size, 0.0f);
+        h_input.insert(h_input.end(), h.begin(), h.end());
+
+        std::vector<float> a_backup = rt.a;
+        forward(h_input);
+        std::vector<float> a_j(tn[last], 0.0f);
+        for (size_t j = 0; j < tn[last]; j++) {
+            a_j[j] = rt.a[out_start + j];
+        }
+        rt.a = a_backup;
+
+        // ---- a_true = a_true_on_context + a_j ----
+        std::vector<float> a_true(tn[last], 0.0f);
+        for (size_t j = 0; j < tn[last]; j++) {
+            a_true[j] = a_true_on_context[j] + a_j[j];
+        }
+
+        // ---- err = a_true - a_pred ----
         std::vector<float> err(tn[last], 0.0f);
         for (size_t j = 0; j < tn[last]; j++) {
-            err[j] = 0.0f - rt.a[out_start + j];  // target=0
+            err[j] = a_true[j] - a_pred[j];
         }
 
         // ---- 标准反向传播：从输出层往回逐层更新 ----
-        size_t wi = 0;
-        size_t bi = 0;
-
-        // 先计算输出层的 delta（无 tanh，delta = err）
         std::vector<float> delta = err;
 
-        // 从最后一层往前传
         for (size_t layer = last; layer >= 1; layer--) {
             size_t prev_a_start = 0;
             for (size_t i = 0; i < layer - 1; i++) {
                 prev_a_start += tn[i];
             }
 
-            // 更新 b（delta 直接加到 ba）
+            // 更新 b
             size_t b_offset = 0;
             for (size_t i = 1; i < layer; i++) {
                 b_offset += tn[i];
@@ -88,7 +139,7 @@ namespace _mi {
                 rp.ba[b_offset + j] += delta[j] * lr;
             }
 
-            // 更新 w（delta * prev_a）
+            // 更新 w
             size_t w_offset = 0;
             for (size_t i = 0; i < layer - 1; i++) {
                 w_offset += tn[i] * tn[i + 1];
@@ -99,23 +150,34 @@ namespace _mi {
                 }
             }
 
-            // 计算前一层的 delta（如果有下一层）
-            if (layer > 1) {
+            // 计算前一层的 delta
+            {
                 std::vector<float> new_delta(tn[layer - 1], 0.0f);
                 for (size_t k = 0; k < tn[layer - 1]; k++) {
                     float sum = 0.0f;
                     for (size_t j = 0; j < tn[layer]; j++) {
                         sum += delta[j] * rp.w[w_offset + k * tn[layer] + j];
                     }
-                    // 中间层有 tanh，乘导数 (1 - a^2)
-                    float a = rt.a[prev_a_start + k];
-                    new_delta[k] = sum * (1.0f - a * a);
+                    if (layer > 1) {
+                        float a = rt.a[prev_a_start + k];
+                        new_delta[k] = sum * (1.0f - a * a);
+                    } else {
+                        new_delta[k] = sum;
+                    }
                 }
                 delta = new_delta;
             }
         }
 
-        // 计算损失：MSE = 平均(err^2)
+        // 如果使用词向量，把输入层的梯度传给词向量
+        if (rt.use_embedding) {
+            size_t copy_count = std::min(emb.dim, delta.size());
+            for (size_t i = 0; i < copy_count; i++) {
+                emb.grads[rt.last_word_id][i] += delta[i];
+            }
+        }
+
+        // 计算损失：MSE
         float loss = 0.0f;
         for (size_t j = 0; j < tn[last]; j++) {
             loss += err[j] * err[j];
@@ -138,17 +200,31 @@ namespace _mi {
         // 反向传播，更新 wa/ba，返回损失
         float loss = rd();
 
-        // 用隐藏层激活值更新隐状态（不是输出层）
+        // 用最后一个隐藏层的激活值更新隐状态
         const std::vector<size_t>& tn = rp.neur;
-        size_t h_start = tn[0];  // 隐藏层在 rt.a 中的起始位置
-        size_t h_count = std::min(rt.h.size(), tn[1]);  // 取较小值，防止越界
-        rt.h.assign(rt.a.begin() + h_start, rt.a.begin() + h_start + h_count);
+        // 最后一个隐藏层的起始位置 = 输入层 + 所有中间隐藏层
+        size_t h_start = tn[0];
+        for (size_t i = 1; i < tn.size() - 2; i++) {
+            h_start += tn[i];
+        }
+        size_t h_count = tn[tn.size() - 2];  // 倒数第二层 = 最后一个隐藏层
+        size_t copy_count = std::min(rt.h.size(), h_count);
+        rt.h.assign(rt.a.begin() + h_start, rt.a.begin() + h_start + copy_count);
 
         // 隐状态防爆：软限幅，保持梯度流畅
         for (auto& val : rt.h) {
             val = std::tanh(val);
         }
 
+        return loss;
+    }
+
+    // ========== 用词索引训练 ==========
+    float rnn::train_word(size_t word_id) {
+        rt.last_word_id = word_id;
+        rt.use_embedding = true;
+        float loss = train(emb.vectors[word_id]);
+        rt.use_embedding = false;
         return loss;
     }
 
@@ -162,11 +238,15 @@ namespace _mi {
             forward(full_input);
             total_loss += rd();
 
-            // 更新隐状态（用隐藏层激活值）
+            // 更新隐状态（用最后一个隐藏层激活值）
             const std::vector<size_t>& tn = rp.neur;
             size_t h_start = tn[0];
-            size_t h_count = std::min(rt.h.size(), tn[1]);
-            rt.h.assign(rt.a.begin() + h_start, rt.a.begin() + h_start + h_count);
+            for (size_t i = 1; i < tn.size() - 2; i++) {
+                h_start += tn[i];
+            }
+            size_t h_count = tn[tn.size() - 2];
+            size_t copy_count = std::min(rt.h.size(), h_count);
+            rt.h.assign(rt.a.begin() + h_start, rt.a.begin() + h_start + copy_count);
 
             // 隐状态防爆：软限幅
             for (auto& val : rt.h) {
@@ -187,6 +267,57 @@ namespace _mi {
             rp.b[i] += rp.ba[i];
             rp.ba[i] = 0.0f;
         }
+    }
+
+    // ========== 把词向量梯度应用到词向量 ==========
+    void rnn::apply_embedding_update() {
+        for (size_t i = 0; i < emb.vectors.size(); i++) {
+            for (size_t j = 0; j < emb.dim; j++) {
+                emb.vectors[i][j] += emb.grads[i][j] * lr;
+                emb.grads[i][j] = 0.0f;
+            }
+        }
+    }
+
+    // ========== Oja Hebbian 学习 ==========
+    // Δw = η * y * (x - y * w)
+    // x: 输入向量（词向量）
+    // layer: 用哪一层的权重（默认 1 = 第一个隐藏层）
+    // 返回: 输出 y = x @ w
+    std::vector<float> rnn::hebbian(std::vector<float> x, size_t layer) {
+        const std::vector<size_t>& tn = rp.neur;
+
+        // 计算 w 的起始位置
+        size_t w_offset = 0;
+        for (size_t i = 0; i < layer - 1; i++) {
+            w_offset += tn[i] * tn[i + 1];
+        }
+
+        size_t in = tn[layer - 1];   // 输入维度
+        size_t out = tn[layer];       // 输出维度
+
+        // y = x @ w（前向传播）
+        std::vector<float> y(out, 0.0f);
+        for (size_t j = 0; j < out; j++) {
+            for (size_t k = 0; k < in; k++) {
+                y[j] += x[k] * rp.w[w_offset + k * out + j];
+            }
+        }
+
+        // Δw = η * y * (x - y * w)
+        for (size_t k = 0; k < in; k++) {
+            for (size_t j = 0; j < out; j++) {
+                float yw = 0.0f;
+                for (size_t m = 0; m < out; m++) {
+                    yw += y[m] * rp.w[w_offset + k * out + m];
+                }
+                // 简化：只用 y[j] 而不是全量 yw
+                float delta_w = lr * y[j] * (x[k] - y[j] * rp.w[w_offset + k * out + j]);
+                rp.w[w_offset + k * out + j] += delta_w;
+            }
+        }
+
+        return y;
     }
 
     // ========== 隐状态便捷接口 ==========

@@ -54,6 +54,43 @@ namespace _mi {
         // 隐状态初始化为 0
         rt.h.resize(h_size, 0.0f);
     }
+
+    // ========== 词向量初始化 ==========
+    void rnn::init_embedding(size_t vocab_size, size_t vec_dim) {
+        emb.dim = vec_dim;
+        emb.vectors.resize(vocab_size);
+        emb.grads.resize(vocab_size);
+        for (size_t i = 0; i < vocab_size; i++) {
+            emb.vectors[i].resize(vec_dim);
+            emb.grads[i].resize(vec_dim, 0.0f);
+        }
+    }
+
+    // ========== 添加词到词表 ==========
+    size_t rnn::add_word(std::string word) {
+        if (emb.word2id.count(word)) {
+            return emb.word2id[word];
+        }
+        size_t id = emb.id2word.size();
+        emb.word2id[word] = id;
+        emb.id2word.push_back(word);
+        // 扩展词向量
+        emb.vectors.push_back(std::vector<float>(emb.dim));
+        emb.grads.push_back(std::vector<float>(emb.dim, 0.0f));
+        // 随机初始化词向量
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::normal_distribution<float> dist(0.0f, 1.0f / std::sqrt(emb.dim));
+        for (size_t i = 0; i < emb.dim; i++) {
+            emb.vectors[id][i] = dist(gen);
+        }
+        return id;
+    }
+
+    // ========== 获取词向量 ==========
+    std::vector<float>& rnn::get_vector(std::string word) {
+        return emb.vectors[emb.word2id[word]];
+    }
 }
 
 #endif

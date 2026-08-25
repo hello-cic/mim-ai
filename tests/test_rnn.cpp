@@ -79,3 +79,21 @@ TEST_CASE("rnn hidden state", "[rnn]") {
     REQUIRE(h[0] == 0.1f);
     REQUIRE(h[1] == 0.2f);
 }
+
+TEST_CASE("rnn multi hidden layers", "[rnn]") {
+    _mi::rnn net;
+    // 2输入, 3隐藏层1, 4隐藏层2, 1输出
+    std::array<size_t, 4> neur = {2, 3, 4, 1};
+    net.init(neur, 2);
+
+    // 隐状态从最后一个隐藏层（neur[2]=4）取，但 h_size=2，取 min(2,4)=2
+    std::vector<float> input = {0.5f, -0.3f};
+    float loss = net.train(input);
+
+    REQUIRE(loss >= 0.0f);
+    REQUIRE(net.rt.h.size() == 2);
+
+    // 再训练一次，隐状态应该更新了
+    float loss2 = net.train(input);
+    REQUIRE(loss2 >= 0.0f);
+}
