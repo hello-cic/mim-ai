@@ -53,13 +53,10 @@ void normalize(std::vector<float>& v) {
 int main() {
     // ========== 1. 读取语料 ==========
     std::cout << "=== 读取语料 ===" << std::endl;
-    // 优先用项目里的本地副本，没有就用外置硬盘的完整语料
-    std::string corpus = read_corpus("src/data/zhwiki_50k.txt", 50000);
+    // 优先用清洗后的本地副本
+    std::string corpus = read_corpus("src/data/zhwiki_clean.txt", 50000);
     if (corpus.empty()) {
-        corpus = read_corpus(
-            "/Volumes/大城编程固态硬盘/语料/wiki/zhwiki_s.txt", 
-            50000
-        );
+        corpus = read_corpus("src/data/zhwiki_50k.txt", 50000);
     }
     if (corpus.empty()) {
         std::cerr << "语料为空，退出" << std::endl;
@@ -68,10 +65,9 @@ int main() {
 
     // ========== 2. 学习 BPE ==========
     std::cout << "\n=== 学习 BPE ===" << std::endl;
-    // 只用前 20000 个字符学 BPE，加快速度
-    std::string bpe_corpus = corpus.substr(0, 20000);
+    // 用完整语料学 BPE
     _mi::bpe tokenizer;
-    tokenizer.learn(bpe_corpus, 100);  // 学 100 个合并规则
+    tokenizer.learn(corpus, 200);  // 学 200 个合并规则
     std::cout << "词表大小: " << tokenizer.vocab_size << std::endl;
 
     // ========== 3. 构建词向量表 ==========
@@ -112,7 +108,7 @@ int main() {
     std::cout << "语料 token 数: " << token_ids.size() << std::endl;
 
     // 训练参数
-    int epochs = 2;
+    int epochs = 10;
     int batch_size = 32;
     int seq_len = 10;
 
