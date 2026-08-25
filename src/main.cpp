@@ -54,9 +54,9 @@ int main() {
     // ========== 1. 读取语料 ==========
     std::cout << "=== 读取语料 ===" << std::endl;
     // 优先用清洗后的本地副本
-    std::string corpus = read_corpus("src/data/zhwiki_clean.txt", 50000);
+    std::string corpus = read_corpus("data/zhwiki_clean.txt", 50000);
     if (corpus.empty()) {
-        corpus = read_corpus("src/data/zhwiki_50k.txt", 50000);
+        corpus = read_corpus("data/zhwiki_50k.txt", 50000);
     }
     if (corpus.empty()) {
         std::cerr << "语料为空，退出" << std::endl;
