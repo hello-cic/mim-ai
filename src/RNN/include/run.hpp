@@ -32,10 +32,8 @@ namespace _mi {
                     sum += rp.w[wi] * old_a[k];
                     wi++;
                 }
-                // 中间层用 tanh 激活，输出层不激活
-                if (layer != tn.size() - 1) {
-                    sum = std::tanh(sum);
-                }
+                // 所有层都用 tanh 激活
+                sum = std::tanh(sum);
                 new_a.push_back(sum);
                 bi++;
             }
@@ -60,8 +58,8 @@ namespace _mi {
         // ---- a_pred = 当前整个网络的激活值 ----
         std::vector<float> a_pred = rt.a;
 
-        // ---- a_true_on_context：复制 rt.a，输出层设为 goal ----
-        std::vector<float> a_true_on_context = rt.a;
+        // ---- a_true_on_context：复制 a_pred，输出层设为 goal ----
+        std::vector<float> a_true_on_context = a_pred;
         size_t out_start = 0;
         for (size_t i = 0; i < last; i++) {
             out_start += tn[i];
@@ -70,49 +68,8 @@ namespace _mi {
             a_true_on_context[out_start + j] = goal[j];
         }
 
-        // ---- 用 a * (w/wh) 从输出层往回逐层算 ----
-        // 从最后一层往回，每层用当前层的 a_true_on_context 去算前一层
-        size_t wi = rp.w.size() - 1;
-        size_t ai = rt.a.size() - 1;
-
-        for (size_t layer = last; layer > 0; layer--) {
-            for (size_t a = 0; a < tn[layer]; a++) {
-                // 算 wh = sum(|w|)：当前神经元到前一层所有权重的绝对值之和
-                float wh = 0.0f;
-                for (size_t j = 0; j < tn[layer - 1]; j++) {
-                    wh += std::abs(rp.w[wi]);
-                    wi--;
-                }
-                if (wh < 1e-8f) wh = 1e-8f;
-
-                // 用公式 a_true_on_context[j] += mya * (myw / wh) 算前一层
-                size_t wi_back = wi;
-                for (size_t j = 0; j < tn[layer - 1]; j++) {
-                    float mya = a_true_on_context[ai];
-                    float myw = rp.w[wi_back];
-                    a_true_on_context[j] += mya * (myw / wh);
-                    wi_back--;
-                }
-                ai--;
-            }
-        }
-
-        // ---- a_j：只用隐状态跑一次（整个网络激活值）----
-        std::vector<float> h = rt.h;
-        size_t input_size = tn[0] - h.size();
-        std::vector<float> h_input(input_size, 0.0f);
-        h_input.insert(h_input.end(), h.begin(), h.end());
-
-        std::vector<float> a_backup = rt.a;
-        forward(h_input);
-        std::vector<float> a_j = rt.a;  // 整个网络
-        rt.a = a_backup;
-
-        // ---- a_true = a_true_on_context + a_j（逐元素）----
-        std::vector<float> a_true(a_pred.size(), 0.0f);
-        for (size_t i = 0; i < a_pred.size(); i++) {
-            a_true[i] = a_true_on_context[i] + a_j[i];
-        }
+        // ---- a_true = a_true_on_context（直接用，不加 a_j）----
+        std::vector<float> a_true = a_true_on_context;
 
         // ---- err = a_true - a_pred（逐元素）----
         std::vector<float> err(a_pred.size(), 0.0f);

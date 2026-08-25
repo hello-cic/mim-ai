@@ -41,6 +41,7 @@ namespace _mi { // mim internal（mim的内部）
             std::vector<float> a;      // 各层激活值（展开）
             std::vector<float> j;     // 只用隐状态跑出来的激活值
             std::vector<float> h;    // 隐状态
+            std::vector<float> prev_a_true_on_context; // 上一次的 a_true_on_context（移动平均用）
             float last_loss = 0.0f; // 最近一次的损失（MSE）
             size_t last_word_id = 0; // 最近一次输入的词索引（用于词向量反向传播）
             bool use_embedding = false; // 是否使用词向量
