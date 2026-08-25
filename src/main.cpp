@@ -140,7 +140,10 @@ int main() {
             // 比较下降 RNN 训练（预测下一个 token）
             supervised.set_h(std::vector<float>(2, 0.0f));
             for (size_t j = 0; j + 1 < features.size(); j++) {
-                supervised.train(features[j]);
+                // goal = 下一个 token 的 one-hot
+                std::vector<float> target(vocab_size, 0.0f);
+                target[seq[j + 1]] = 1.0f;
+                supervised.train(features[j], target);
             }
             supervised.apply_update();
 

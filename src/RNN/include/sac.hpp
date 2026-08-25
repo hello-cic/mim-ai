@@ -76,15 +76,13 @@ namespace _mi { // mim internal（mim的内部）
         // 前向传播：input 是当前时刻的输入，结果存到 rt.a
         void forward(std::vector<float> input);
 
-        // 反向传播：用 main.cpp 注释里的"比较下降"算法更新 wa/ba，返回损失
+        // 反向传播：用比较下降算法更新 wa/ba，goal = 输出层目标值
         float rd(std::vector<float> goal);
 
         // 一次训练：前向 + 反向，自动管理隐状态，返回损失
-        float train(std::vector<float> input);
+        float train(std::vector<float> input, std::vector<float> target);
         // 用词索引训练（自动查词向量，反向传播时更新词向量）
-        float train_word(size_t word_id);
-        // 批量训练：依次训练多个输入，返回总损失
-        float train(std::vector<std::vector<float>> input);
+        float train_word(size_t word_id, std::vector<float> target);
 
         // 把 wa/ba 真正应用到 w/b，然后清零 wa/ba
         void apply_update();

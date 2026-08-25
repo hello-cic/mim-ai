@@ -30,12 +30,13 @@ TEST_CASE("rnn train + apply_update", "[rnn]") {
     net.init(neur, 2);
 
     std::vector<float> input = {0.5f, -0.3f};
+    std::vector<float> target = {0.0f};  // 目标值
 
     // 保存更新前的 w
     std::vector<float> w_before = net.rp.w;
 
     // 训练一次
-    float loss = net.train(input);
+    float loss = net.train(input, target);
 
     // 损失应该是一个非负数
     REQUIRE(loss >= 0.0f);
@@ -88,12 +89,13 @@ TEST_CASE("rnn multi hidden layers", "[rnn]") {
 
     // 隐状态从最后一个隐藏层（neur[2]=4）取，但 h_size=2，取 min(2,4)=2
     std::vector<float> input = {0.5f, -0.3f};
-    float loss = net.train(input);
+    std::vector<float> target = {0.0f};
+    float loss = net.train(input, target);
 
     REQUIRE(loss >= 0.0f);
     REQUIRE(net.rt.h.size() == 2);
 
     // 再训练一次，隐状态应该更新了
-    float loss2 = net.train(input);
+    float loss2 = net.train(input, target);
     REQUIRE(loss2 >= 0.0f);
 }
