@@ -53,45 +53,37 @@ namespace _mi {
     //   4. a_true = a_true_on_context + a_j
     //   5. err = a_true - a_pred
     //   6. 标准反向传播更新 w/b
-    float rnn::rd() {
+    float rnn::rd(std::vector<float> goal) {
         const std::vector<size_t>& tn = rp.neur;
         size_t last = tn.size() - 1;
-        size_t prev = last - 1;
 
-        // ---- 取出输出层的预测值 ----
-        size_t out_start = 0;
-        for (size_t i = 0; i < last; i++) {
-            out_start += tn[i];
-        }
-        std::vector<float> a_pred(tn[last], 0.0f);
-        for (size_t j = 0; j < tn[last]; j++) {
-            a_pred[j] = rt.a[out_start + j];
-        }
-
-        // ---- 计算前一层→输出层的 w 起始位置 ----
-        size_t w_start = 0;
-        for (size_t i = 0; i < prev; i++) {
-            w_start += tn[i] * tn[i + 1];
-        }
+        // 得到a，作为a_pred
+        std::vector<float> a_pred = rt.a;
 
         // ---- 计算 a_true_on_context ----
         // a_true_on_context[j] = sum_k( a_k * w_kj / wh_k )
-        std::vector<float> a_true_on_context(tn[last], 0.0f);
-        size_t prev_a_start = 0;
-        for (size_t i = 0; i < prev; i++) {
-            prev_a_start += tn[i];
-        }
+        std::vector<float> a_true_on_context = goal;
 
-        for (size_t k = 0; k < tn[prev]; k++) {
-            float wh = 0.0f;
-            for (size_t j = 0; j < tn[last]; j++) {
-                wh += std::abs(rp.w[w_start + k * tn[last] + j]);
-            }
-            if (wh < 1e-8f) wh = 1e-8f;
-            for (size_t j = 0; j < tn[last]; j++) {
-                float a_k = rt.a[prev_a_start + k];
-                float w_kj = rp.w[w_start + k * tn[last] + j];
-                a_true_on_context[j] += a_k * (w_kj / wh);
+        size_t ai = rt.a.size() - 1;
+        size_t wi = rp.w.size() - 1;
+        size_t wi_old = wi;
+
+        for (size_t k = last; k > 0; k--) {
+            for (size_t a = 0; a < tn[k]; a++) {
+                wi_old = wi;
+                float wh = 0.0f;
+                for (size_t j = 0; j < tn[k - 1]; j++) {
+                    wh += std::abs(rp.w[wi]);
+                    wi--;
+                }
+                if (wh < 1e-8f) wh = 1e-8f;
+                for (size_t j = 0; j < tn[k - 1]; j++) {
+                    float mya = rt.a[ai];
+                    float myw = rp.w[wi_old];
+                    a_true_on_context[j] += mya * (myw / wh);
+                    ai--;
+                    wi_old--;
+                }
             }
         }
 

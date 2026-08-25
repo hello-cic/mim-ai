@@ -77,7 +77,7 @@ namespace _mi { // mim internal（mim的内部）
         void forward(std::vector<float> input);
 
         // 反向传播：用 main.cpp 注释里的"比较下降"算法更新 wa/ba，返回损失
-        float rd();
+        float rd(std::vector<float> goal);
 
         // 一次训练：前向 + 反向，自动管理隐状态，返回损失
         float train(std::vector<float> input);

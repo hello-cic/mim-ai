@@ -22,3 +22,9 @@ Makefile
 # Binary files
 src/main
 src/main.dSYM/
+
+# Corpus data (太大不进 git，从 Releases 下载)
+data/
+src/main
+src/main.dSYM/
+.vscode/

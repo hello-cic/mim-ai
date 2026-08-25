@@ -53,10 +53,14 @@ void normalize(std::vector<float>& v) {
 int main() {
     // ========== 1. 读取语料 ==========
     std::cout << "=== 读取语料 ===" << std::endl;
-    std::string corpus = read_corpus(
-        "/Volumes/大城编程固态硬盘/语料/wiki/zhwiki_s.txt", 
-        10000
-    );
+    // 优先用项目里的本地副本，没有就用外置硬盘的完整语料
+    std::string corpus = read_corpus("src/data/zhwiki_50k.txt", 50000);
+    if (corpus.empty()) {
+        corpus = read_corpus(
+            "/Volumes/大城编程固态硬盘/语料/wiki/zhwiki_s.txt", 
+            50000
+        );
+    }
     if (corpus.empty()) {
         std::cerr << "语料为空，退出" << std::endl;
         return 1;
